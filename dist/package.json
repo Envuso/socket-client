@@ -1,0 +1,27 @@
+{
+  "name": "socket-client",
+  "version": "0.0.1",
+  "description": "Frontend socket client for interacting with Envuso's sockets",
+  "main": "index.js",
+  "repository": "https://github.com/envuso/socket-client",
+  "author": "iDevelopThings",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "build": "tsc -b --clean && tsc -b && npx mix",
+    "build-commit-version": "yarn build && git add . && git commit -m \":package: Build before versioning\" && npm version prerelease --preid=alpha",
+    "commit-files-for-publish": "cp package.json dist && cp readme.md dist && git add . && git commit -m \":package: Build and Increased version\"",
+    "prep": "yarn build-commit-version && yarn commit-files-for-publish",
+    "watch": "tsc -b --clean && tsc -w"
+  },
+  "devDependencies": {
+    "postcss": "^8.1",
+    "ts-loader": "^9.1.1",
+    "typescript": "^4.2.4",
+    "laravel-mix": "^6.0.18"
+  },
+  "files": [
+    "**/*"
+  ],
+  "types": "./"
+}

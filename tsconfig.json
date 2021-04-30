@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Node 14",
+  "compilerOptions": {
+    "lib": [
+      "ES2016",
+      "dom"
+    ],
+    "module": "ES2015",
+    "target": "ES2016",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "rootDir": "./src/",
+    "baseUrl": "./src/",
+    "strict": false,
+    "sourceMap": true,
+    "declaration": true,
+    "types": [],
+    "typeRoots": [
+      "node_modules/@types"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "dist/**/*"
+  ],
+  "include": [
+    "src/**/*.ts",
+    "src/index.ts"
+  ]
+}
