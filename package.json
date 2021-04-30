@@ -1,5 +1,5 @@
 {
-  "name": "socket-client",
+  "name": "@envuso/socket-client",
   "version": "0.0.1",
   "description": "Frontend socket client for interacting with Envuso's sockets",
   "main": "index.js",
