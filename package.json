@@ -1,6 +1,6 @@
 {
   "name": "@envuso/socket-client",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Frontend socket client for interacting with Envuso's sockets",
   "main": "index.js",
   "repository": "https://github.com/envuso/socket-client",
@@ -8,6 +8,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
+    "watch-example": "npx mix watch",
     "build": "tsc -b --clean && tsc -b && npx mix",
     "build-commit-version": "yarn build && git add . && git commit -m \":package: Build before versioning\" && npm version prerelease --preid=alpha",
     "commit-files-for-publish": "cp package.json dist && cp readme.md dist && git add . && git commit -m \":package: Build and Increased version\"",

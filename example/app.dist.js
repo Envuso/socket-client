@@ -129,9 +129,9 @@ var SocketChannel = /*#__PURE__*/function () {
       }
 
       this.client.getWs().send(JSON.stringify({
-        channel: this.name,
         event: event,
-        data: data
+        channel: this.name,
+        data: data !== null && data !== void 0 ? data : {}
       }));
     }
     /**
@@ -223,7 +223,6 @@ var SocketClient = /*#__PURE__*/function () {
 
     this.listeners = new Map();
     this.channels = new Map();
-    this.pingTimeout = null;
     this.disconnectTimer = null;
     this.disconnectBackoff = 2000;
     this.disconnectRetries = 0;
@@ -242,9 +241,18 @@ var SocketClient = /*#__PURE__*/function () {
   _createClass(SocketClient, [{
     key: "usingJwt",
     value: function usingJwt(token) {
-      var url = new URL(this.url);
-      url.searchParams.set('token', token);
-      this.url = url.toString();
+      this.token = token;
+      this.addProtocol(this.token);
+      return this;
+    }
+  }, {
+    key: "addProtocol",
+    value: function addProtocol(protocol) {
+      if (!this.protocols) {
+        this.protocols = [];
+      }
+
+      this.protocols.push(this.token);
       return this;
     }
     /**
@@ -300,6 +308,12 @@ var SocketClient = /*#__PURE__*/function () {
       return new Promise(function (resolve) {
         _this.ws.addEventListener('message', function (event) {
           var packet = JSON.parse(event.data);
+
+          if (packet.event === _index__WEBPACK_IMPORTED_MODULE_1__.ServerEventTypes.SOCKET_DISCONNECT) {
+            _this.connectionStatus = _index__WEBPACK_IMPORTED_MODULE_1__.ConnectionStatus.DISCONNECTED;
+            resolve(false);
+            return;
+          }
 
           if (packet.event === _index__WEBPACK_IMPORTED_MODULE_1__.ServerEventTypes.SOCKET_READY) {
             _this.connectionStatus = _index__WEBPACK_IMPORTED_MODULE_1__.ConnectionStatus.CONNECTED;
@@ -386,7 +400,6 @@ var SocketClient = /*#__PURE__*/function () {
   }, {
     key: "_onClose",
     value: function _onClose(event) {
-      clearTimeout(this.pingTimeout);
       this.dispatchEvent('closed', event);
       /**
        * Connection was closed by the developer, not a lost connection to the server
@@ -425,9 +438,6 @@ var SocketClient = /*#__PURE__*/function () {
       var packet = JSON.parse(event.data);
 
       switch (packet.event) {
-        case _index__WEBPACK_IMPORTED_MODULE_1__.ServerEventTypes.SOCKET_PING:
-          return this.respondToPing();
-
         case _index__WEBPACK_IMPORTED_MODULE_1__.ServerEventTypes.CHANNEL_SUBSCRIBE_RESPONSE:
           return this.handleSubscribeResponse(packet.data);
       }
@@ -477,28 +487,6 @@ var SocketClient = /*#__PURE__*/function () {
     value: function listen(eventName, callback) {
       this.listeners.set(eventName, callback);
       return this;
-    }
-    /**
-     * Handle the internal ping/pong with the server to keep the connection alive
-     *
-     * @private
-     */
-
-  }, {
-    key: "respondToPing",
-    value: function respondToPing() {
-      var _this2 = this;
-
-      clearTimeout(this.pingTimeout);
-      this.ws.send(JSON.stringify({
-        event: 'pong',
-        data: {}
-      })); // Server tick is 30s, extra 10 seconds because of latency and such.
-
-      var respondWithinMs = 30000 + 10000;
-      this.pingTimeout = setTimeout(function () {
-        _this2.ws.close(0, 'Server didnt send ping in time.');
-      }, respondWithinMs);
     }
     /**
      * Send a regular socket event to the server
@@ -557,6 +545,11 @@ var SocketClient = /*#__PURE__*/function () {
       }
     }
   }, {
+    key: "hasSubscription",
+    value: function hasSubscription(channel) {
+      return this.channels.has(channel);
+    }
+  }, {
     key: "getWs",
     value: function getWs() {
       return this.ws;
@@ -575,19 +568,19 @@ var SocketClient = /*#__PURE__*/function () {
   }, {
     key: "beginReconnect",
     value: function beginReconnect() {
-      var _this3 = this;
+      var _this2 = this;
 
       if (this.connectionStatus === _index__WEBPACK_IMPORTED_MODULE_1__.ConnectionStatus.DISCONNECTED) {
         this.connectionStatus = _index__WEBPACK_IMPORTED_MODULE_1__.ConnectionStatus.RE_CONNECTING;
       }
 
       this.disconnectTimer = setTimeout(function () {
-        _this3.disconnectRetries++;
-        _this3.disconnectBackoff += 2000;
+        _this2.disconnectRetries++;
+        _this2.disconnectBackoff += 2000;
         console.log('Attempting to reconnect.... ');
 
-        _this3.connect().then(function () {
-          _this3.handleReconnect();
+        _this2.connect().then(function () {
+          _this2.handleReconnect();
         });
       }, this.disconnectBackoff);
     }
@@ -655,6 +648,7 @@ var ServerEventTypes;
   ServerEventTypes["SOCKET_PING"] = "ping";
   ServerEventTypes["SOCKET_PONG"] = "pong";
   ServerEventTypes["SOCKET_READY"] = "ready";
+  ServerEventTypes["SOCKET_DISCONNECT"] = "disconnect";
   ServerEventTypes["CHANNEL_SUBSCRIBE_REQUEST"] = "subscribe-channel-request";
   ServerEventTypes["CHANNEL_SUBSCRIBE_RESPONSE"] = "subscribe-channel-response";
   ServerEventTypes["CHANNEL_UNSUBSCRIBE_REQUEST"] = "unsubscribe-channel-request";
@@ -1511,8 +1505,9 @@ var _require = __webpack_require__(/*! ./../dist */ "./dist/index.js"),
     SocketClient = _require.SocketClient,
     SocketChannel = _require.SocketChannel;
 
-var JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwODcxNzdiNzIyNDcyZDUxMDNlYjZiNyIsImlhdCI6MTYxOTgwNjk3MiwiZXhwIjoxNjE5ODkzMzcyfQ.QhvXViAVOZUtJ6PvoijTL5ZA3fxYOqzsHC9aYxJTbZ8";
-var client = new SocketClient('ws://127.0.0.1:3000');
+var JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYxNzM2NTE4YWI3ZGU5Y2VjZjk2N2M1YSIsImlhdCI6MTYzNDk1MjQ3MiwiZXhwIjoxNjM1MDM4ODcyfQ.1cEWNXbpN7ZqWJ3MQUvbrgUqeSKVwMOgm2ZzpoLsJ_8";
+var userId = "61736518ab7de9cecf967c5a";
+var client = new SocketClient('ws://127.0.0.1:3335');
 window.client = client;
 /**
  * @type {SocketChannel|null}
@@ -1526,6 +1521,7 @@ function setupSockets() {
 
 function _setupSockets() {
   _setupSockets = _asyncToGenerator( /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_0___default().mark(function _callee() {
+    var uChannelName, publicChannelName;
     return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_0___default().wrap(function _callee$(_context) {
       while (1) {
         switch (_context.prev = _context.next) {
@@ -1534,7 +1530,9 @@ function _setupSockets() {
             return client.usingJwt(JWT).connect();
 
           case 2:
-            client.subscribe("user:6087177b722472d5103eb6b7", function (error, channel) {
+            uChannelName = "user:".concat(userId);
+            publicChannelName = "public";
+            client.subscribe(publicChannelName, function (error, channel) {
               if (error) {
                 console.error(error);
                 return;
@@ -1546,7 +1544,7 @@ function _setupSockets() {
               });
             });
 
-          case 3:
+          case 5:
           case "end":
             return _context.stop();
         }
@@ -1557,13 +1555,16 @@ function _setupSockets() {
 }
 
 setupSockets();
-document.addEventListener('readystatechange', function () {
-  document.getElementById('unsubscribe').addEventListener('click', function () {
-    userChannel.unsubscribe();
+document.getElementById('unsubscribe').addEventListener('click', function () {
+  userChannel.unsubscribe();
+});
+document.getElementById('sendhello').addEventListener('click', function () {
+  userChannel.emit('hello', {
+    message: 'ohhi'
   });
-  document.getElementById('disconnect').addEventListener('click', function () {
-    client.disconnect();
-  });
+});
+document.getElementById('disconnect').addEventListener('click', function () {
+  client.disconnect();
 });
 })();
 

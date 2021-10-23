@@ -11,6 +11,7 @@ export var ServerEventTypes;
     ServerEventTypes["SOCKET_PING"] = "ping";
     ServerEventTypes["SOCKET_PONG"] = "pong";
     ServerEventTypes["SOCKET_READY"] = "ready";
+    ServerEventTypes["SOCKET_DISCONNECT"] = "disconnect";
     ServerEventTypes["CHANNEL_SUBSCRIBE_REQUEST"] = "subscribe-channel-request";
     ServerEventTypes["CHANNEL_SUBSCRIBE_RESPONSE"] = "subscribe-channel-response";
     ServerEventTypes["CHANNEL_UNSUBSCRIBE_REQUEST"] = "unsubscribe-channel-request";

@@ -4,15 +4,14 @@ import {SocketChannel} from "./SocketChannel";
 
 export class SocketClient {
 	private url: string;
+	private token: string;
 
-	private protocols: string | string[];
+	private protocols: string[];
 
 	private ws: WebSocket;
 
 	private listeners: Map<string, Function>     = new Map();
 	private channels: Map<string, SocketChannel> = new Map();
-
-	private pingTimeout: number = null;
 
 	private disconnectTimer: number   = null;
 	private disconnectBackoff: number = 2_000;
@@ -20,7 +19,7 @@ export class SocketClient {
 
 	private connectionStatus: ConnectionStatus = ConnectionStatus.NONE;
 
-	constructor(url: string, protocols?: string | string[]) {
+	constructor(url: string, protocols?: string[]) {
 		this.url       = url;
 		this.protocols = protocols;
 	}
@@ -32,15 +31,22 @@ export class SocketClient {
 	 * @returns {this}
 	 */
 	public usingJwt(token: string): this {
-		const url = new URL(this.url);
+		this.token = token;
 
-		url.searchParams.set('token', token);
-
-		this.url = url.toString();
+		this.addProtocol(this.token);
 
 		return this;
 	}
 
+	public addProtocol(protocol: any): this {
+		if (!this.protocols) {
+			this.protocols = [];
+		}
+
+		this.protocols.push(this.token);
+
+		return this;
+	}
 
 	/**
 	 * Start the websocket connection
@@ -75,6 +81,13 @@ export class SocketClient {
 		return new Promise((resolve => {
 			this.ws.addEventListener('message', (event) => {
 				const packet: SocketPacket = JSON.parse(event.data);
+
+				if (packet.event === ServerEventTypes.SOCKET_DISCONNECT) {
+					this.connectionStatus = ConnectionStatus.DISCONNECTED;
+					resolve(false);
+
+					return;
+				}
 
 				if (packet.event === ServerEventTypes.SOCKET_READY) {
 					this.connectionStatus = ConnectionStatus.CONNECTED;
@@ -112,7 +125,6 @@ export class SocketClient {
 		this.channels.set(name, channel);
 
 		channel.subscribe(callback);
-
 	}
 
 	/**
@@ -145,8 +157,6 @@ export class SocketClient {
 	 * @private
 	 */
 	private _onClose(event: CloseEvent) {
-		clearTimeout(this.pingTimeout);
-
 		this.dispatchEvent('closed', event);
 
 		/**
@@ -185,8 +195,6 @@ export class SocketClient {
 		const packet: SocketPacket = JSON.parse(event.data);
 
 		switch (packet.event) {
-			case ServerEventTypes.SOCKET_PING:
-				return this.respondToPing();
 			case ServerEventTypes.CHANNEL_SUBSCRIBE_RESPONSE:
 				return this.handleSubscribeResponse(packet.data);
 		}
@@ -233,27 +241,6 @@ export class SocketClient {
 		this.listeners.set(eventName, callback);
 
 		return this;
-	}
-
-	/**
-	 * Handle the internal ping/pong with the server to keep the connection alive
-	 *
-	 * @private
-	 */
-	private respondToPing() {
-		clearTimeout(this.pingTimeout);
-
-		this.ws.send(JSON.stringify({
-			event : 'pong',
-			data  : {},
-		}));
-
-		// Server tick is 30s, extra 10 seconds because of latency and such.
-		const respondWithinMs = 30_000 + 10_000;
-
-		this.pingTimeout = setTimeout(() => {
-			this.ws.close(0, 'Server didnt send ping in time.');
-		}, respondWithinMs);
 	}
 
 	/**
@@ -308,6 +295,10 @@ export class SocketClient {
 		}
 	}
 
+	hasSubscription(channel: string): boolean {
+		return this.channels.has(channel);
+	}
+
 	public getWs(): WebSocket {
 		return this.ws;
 	}
@@ -334,7 +325,7 @@ export class SocketClient {
 			console.log('Attempting to reconnect.... ');
 
 			this.connect().then(() => {
-				this.handleReconnect()
+				this.handleReconnect();
 			});
 		}, this.disconnectBackoff);
 	}

@@ -71,9 +71,9 @@ export class SocketChannel {
             throw new Error('Cannot send socket event when not connected.');
         }
         this.client.getWs().send(JSON.stringify({
-            channel: this.name,
             event: event,
-            data: data
+            channel: this.name,
+            data: data !== null && data !== void 0 ? data : {}
         }));
     }
     /**

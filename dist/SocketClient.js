@@ -13,7 +13,6 @@ export class SocketClient {
     constructor(url, protocols) {
         this.listeners = new Map();
         this.channels = new Map();
-        this.pingTimeout = null;
         this.disconnectTimer = null;
         this.disconnectBackoff = 2000;
         this.disconnectRetries = 0;
@@ -28,9 +27,15 @@ export class SocketClient {
      * @returns {this}
      */
     usingJwt(token) {
-        const url = new URL(this.url);
-        url.searchParams.set('token', token);
-        this.url = url.toString();
+        this.token = token;
+        this.addProtocol(this.token);
+        return this;
+    }
+    addProtocol(protocol) {
+        if (!this.protocols) {
+            this.protocols = [];
+        }
+        this.protocols.push(this.token);
         return this;
     }
     /**
@@ -63,6 +68,11 @@ export class SocketClient {
         return new Promise((resolve => {
             this.ws.addEventListener('message', (event) => {
                 const packet = JSON.parse(event.data);
+                if (packet.event === ServerEventTypes.SOCKET_DISCONNECT) {
+                    this.connectionStatus = ConnectionStatus.DISCONNECTED;
+                    resolve(false);
+                    return;
+                }
                 if (packet.event === ServerEventTypes.SOCKET_READY) {
                     this.connectionStatus = ConnectionStatus.CONNECTED;
                     this.ws.onmessage = this._onMessage.bind(this);
@@ -121,7 +131,6 @@ export class SocketClient {
      * @private
      */
     _onClose(event) {
-        clearTimeout(this.pingTimeout);
         this.dispatchEvent('closed', event);
         /**
          * Connection was closed by the developer, not a lost connection to the server
@@ -153,8 +162,6 @@ export class SocketClient {
     _onMessage(event) {
         const packet = JSON.parse(event.data);
         switch (packet.event) {
-            case ServerEventTypes.SOCKET_PING:
-                return this.respondToPing();
             case ServerEventTypes.CHANNEL_SUBSCRIBE_RESPONSE:
                 return this.handleSubscribeResponse(packet.data);
         }
@@ -193,23 +200,6 @@ export class SocketClient {
     listen(eventName, callback) {
         this.listeners.set(eventName, callback);
         return this;
-    }
-    /**
-     * Handle the internal ping/pong with the server to keep the connection alive
-     *
-     * @private
-     */
-    respondToPing() {
-        clearTimeout(this.pingTimeout);
-        this.ws.send(JSON.stringify({
-            event: 'pong',
-            data: {},
-        }));
-        // Server tick is 30s, extra 10 seconds because of latency and such.
-        const respondWithinMs = 30000 + 10000;
-        this.pingTimeout = setTimeout(() => {
-            this.ws.close(0, 'Server didnt send ping in time.');
-        }, respondWithinMs);
     }
     /**
      * Send a regular socket event to the server
@@ -253,6 +243,9 @@ export class SocketClient {
         if (this.channels.has(channelName)) {
             this.channels.delete(channelName);
         }
+    }
+    hasSubscription(channel) {
+        return this.channels.has(channel);
     }
     getWs() {
         return this.ws;

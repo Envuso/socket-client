@@ -22,7 +22,6 @@ export class SocketChannel {
 
 	public _responseCallback: ChannelSubscribeRequestCallback;
 
-
 	constructor(name: string, client: SocketClient) {
 		this.name   = name;
 		this.client = client;
@@ -115,9 +114,9 @@ export class SocketChannel {
 		}
 
 		this.client.getWs().send(JSON.stringify({
-			channel : this.name,
 			event   : event,
-			data    : data
+			channel : this.name,
+			data    : data ?? {}
 		}));
 
 	}

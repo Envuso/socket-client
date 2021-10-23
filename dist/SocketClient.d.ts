@@ -2,16 +2,16 @@ import { ChannelSubscribeRequestCallback, ConnectionStatus, ServerEventTypes, So
 import { SocketChannel } from "./SocketChannel";
 export declare class SocketClient {
     private url;
+    private token;
     private protocols;
     private ws;
     private listeners;
     private channels;
-    private pingTimeout;
     private disconnectTimer;
     private disconnectBackoff;
     private disconnectRetries;
     private connectionStatus;
-    constructor(url: string, protocols?: string | string[]);
+    constructor(url: string, protocols?: string[]);
     /**
      * Connect using a user Json Web Token
      *
@@ -19,6 +19,7 @@ export declare class SocketClient {
      * @returns {this}
      */
     usingJwt(token: string): this;
+    addProtocol(protocol: any): this;
     /**
      * Start the websocket connection
      *
@@ -100,12 +101,6 @@ export declare class SocketClient {
      */
     listen<T extends SocketPacketBody>(eventName: string, callback: (data: T) => void): this;
     /**
-     * Handle the internal ping/pong with the server to keep the connection alive
-     *
-     * @private
-     */
-    private respondToPing;
-    /**
      * Send a regular socket event to the server
      *
      * @param {string | ServerEventTypes} event
@@ -129,6 +124,7 @@ export declare class SocketClient {
      * @private
      */
     removeChannel(channel: SocketChannel | string): void;
+    hasSubscription(channel: string): boolean;
     getWs(): WebSocket;
     getConnectionStatus(): ConnectionStatus;
     /**
